@@ -8,6 +8,13 @@
  * @author tydeas_dr mail: tydeas[at]gmail.copm
  * @version 0.1
  *
+ * version 0.2
+ * -----------
+ * + Main method getArrayClass( "classname" ) created.
+ * + class link added as attribute.
+ * + bugs removed.
+ * + if there is no site the script dies.
+ * 
  * version 0.1
  *------------
  * + Can not take as parameter the class name yet.
@@ -18,53 +25,66 @@
  * + BUGS: In method getTable there are 2 comments related to bugs.
  **/
 
+var_dump( getArrayClass( "Yii") );
 
+/**
+ * This method is the main method. You supply a class name and you get an 
+ * with all the documentation.
+ * @para string name of class
+ * @return array documentation of class
+ **/
+function getArrayClass( $class ) {
+	$url = "http://www.yiiframework.com/doc/api/";
+	if ( !file_get_contents( $url.$class ) ) return array();
+	$html = file_get_contents( $url.$class );
+	$dom = new DOMDocument();
+	$dom->loadHTML($html);
+	$dom->preserveWhiteSpace = false;
+	// Standard h2 headings. The method and propertied details are missing
+	$h2s = array('Public Properties','Public Methods','Protected Properties','Protected Methods');
 
-$html = file_get_contents("http://www.yiiframework.com/doc/api/CController/");
-$dom = new DOMDocument();
-$dom->loadHTML($html);
-$dom->preserveWhiteSpace = false;
-// Standard h2 headings. The method and propertied details are missing
-$h2s = array('Public Properties','Public Methods','Protected Properties','Protected Methods');
+	//The content div
+	$content = $dom->getElementById("content");
 
-//The content div
-$content = $dom->getElementById("content");
+	//The document as an array
+	$classdoc = array();
 
-//The document as an array
-$classdoc = array();
+	//Get all the tables. The first table will be the one under the header.
+	$tables = $content->getElementsByTagName('table');
 
-//Get all the tables. The first table will be the one under the header.
-$tables = $content->getElementsByTagName('table');
+	//Get name of the class.
+	$classname = $content->getElementsByTagName("h1");
 
-//Get name of the class.
-$classname = $content->getElementsByTagName("h1");
+	$classdoc = array();
+	//Get first table under the header.There is a problem with the Inheritance.
+	$classdoc[$class] = getTable( $tables->item(0) , false );
+	
+	//Get Description
+	$classdoc[$class]['description'] = getParagraph( $dom->getElementById('classDescription') );
+	
+	//Add link
+	$classdoc[$class]['Link'] = $url.$class;
 
-$classdoc = array();
-//Get first table under the header.There is a problem with the Inheritance.
-$classdoc['basic'] = getTable( $tables->item(0) , false );
+	//Get all the h2 elements
+	$h2 = $content->getElementsByTagName("h2");
 
-//Get Description
-$classdoc['description'] = getParagraph( $dom->getElementById('classDescription') );
+	//What part of the doc exist
+	$exist = array();
+	foreach( $h2 as $value ) {
+		$exist[] = $value->textContent;
+	}
 
-//Get all the h2 elements
-$h2 = $content->getElementsByTagName("h2");
+	//and what we will get comparte to the usuall standard h2s 
+	$willget = array_intersect ($h2s , $exist );
 
-//What part of the doc exist
-$exist = array();
-foreach( $h2 as $value ) {
-	$exist[] = $value->textContent;
+	$tbln = 1;
+	foreach( $willget as $value ) {
+		$classdoc[$value] = getTable( $tables->item($tbln) , true );
+		$tbln++;
+	}
+
+	return $classdoc;
 }
-
-//and what we will get comparte to the usuall standard h2s 
-$willget = array_intersect ($h2s , $exist );
-
-$tbln = 1;
-foreach( $willget as $value ) {
-        $classdoc[$value] = getTable( $tables->item($tbln) , true );
-        $tbln++;
-}
-
-var_dump($classdoc);
 
 /**
  * Gets as a param a div with text and makes it an array by exploding the text on the \n\n
@@ -111,23 +131,24 @@ function getTable( $tbl , $horizontal=true ) {
         $details = array();
         $rows = $tbl->getElementsByTagName('tr');
         $th = $tbl->getElementsByTagName('th');
-
+	$rowname='';
         foreach( $rows as $rownumber=>$tr ) {
                 $tds = $tr->getElementsByTagName('td');
 		//If it's horizontal take the first td as name
-		if ( $horizontal ) $rowname = $tds->item(0)->textContent;
+		
                 foreach( $tds as $key=>$td ) {
 			if( $horizontal ) {
-				//Something must do for first key ==0
+				if( $key == 0 ) $rowname = trim( $td->textContent );
 				$des = $th->item($key)->textContent;
-                        	$details[$rowname][$des] = trim( $td->textContent );
+                        	$details[$rownumber][$des] = trim( $td->textContent );
+
 			} else {
 				$des = $th->item($rownumber)->textContent;
                         	$details[$des] = trim( $td->textContent );
 			}
+			
                 }
-		//Get some undefined index here but don't know why
-		if ( $horizontal ) $details[$rowname]['Link'] = "/".$details[$rowname]['Defined By']."#".trim( $rowname , "()" )."-detail";
+		if ( $horizontal && $rownumber !=0 ) $details[$rownumber]['Link'] = "http://www.yiiframework.com/doc/api/".$details[$rownumber]['Defined By']."#".trim( $rowname , "()" )."-detail";
         }
         return $details;
 }
