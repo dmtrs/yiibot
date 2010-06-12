@@ -24,9 +24,42 @@
  * + There are 2 functions getDescription and getTable.
  * + BUGS: In method getTable there are 2 comments related to bugs.
  **/
+require_once('./yiidocdb.php');
+$classes = getClasses();
+$docdb =new  DOCDb;
+$docdb->createDB();
 
-var_dump( getArrayClass( "Yii") );
+foreach( $classes as $key=>$val  ) {
+	$docdb->fillDB(getArrayClass($val));
+}
+var_dump($docdb->errors);
 
+/**
+ * Retrieve a list with all the classes from documentation
+ * @returns array classes of the documentation
+ **/
+function getClasses() {
+	$classes = array();
+        $url = "http://www.yiiframework.com/doc/api/"; 
+        if ( !file_get_contents( $url ) ) return array();
+        $html = file_get_contents( $url );
+        $dom = new DOMDocument();
+        $dom->loadHTML($html);
+        $dom->preserveWhiteSpace = false;
+	$content = $dom->getElementById("content");	
+	var_dump($content);
+	$summary = $content->getElementsByTagName('table');
+	var_dump($summary);
+	$rows = $summary->item(0)->getElementsByTagName("tr");
+	
+	foreach( $rows as $key=>$row  ) {
+		$tds = $row->getElementsByTagName("td");
+		if ( $tds->length==2 ) $classes[] = $tds->item(0)->textContent;
+		if ( $tds->length==3 ) $classes[] = $tds->item(1)->textContent;
+	}
+	
+	return $classes;
+}
 /**
  * This method is the main method. You supply a class name and you get an 
  * with all the documentation.
@@ -43,7 +76,7 @@ function getArrayClass( $class ) {
 	// Standard h2 headings. The method and propertied details are missing
 	$h2s = array('Public Properties','Public Methods','Protected Properties','Protected Methods');
 
-	//The content div
+	//Get content
 	$content = $dom->getElementById("content");
 
 	//The document as an array
@@ -60,7 +93,7 @@ function getArrayClass( $class ) {
 	$classdoc[$class] = getTable( $tables->item(0) , false );
 	
 	//Get Description
-	$classdoc[$class]['description'] = getParagraph( $dom->getElementById('classDescription') );
+	$classdoc[$class]['Description'] = getParagraph( $dom->getElementById('classDescription') );
 	
 	//Add link
 	$classdoc[$class]['Link'] = $url.$class;
