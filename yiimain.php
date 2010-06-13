@@ -14,8 +14,8 @@ echo "\n";
 $m->printInfo( "Yii::app()" );
 echo "\n";
 $m->printInfo( "CApplication.basePath");
-//var_dump($db->selectProMeth("CApplication" , "basePath" , FALSE  ));
-//var_dump($db->selectProMeth("Yii" , "app()" , TRUE  ));
+
+
 class DOCMain {
 	public $params;
 	public $db;
@@ -35,7 +35,7 @@ class DOCMain {
 			'l'=>'Link',
 			'a'=>'Access',
 			'y'=>'Definedby',
-			'F'=>'npicsvdl'
+			'F'=>'anypicsvdl'
 		);
 	}
 
@@ -43,7 +43,7 @@ class DOCMain {
 	 * This method formats and print class details.
 	 * @param string class name
          * @param string chars from the initParams to now what to display.
-	 **/
+	 
 	public function printClass( $classname , $what="ndl" ) {
 		$fclass = array();
 		$class = $this->db->selectClass( $classname );
@@ -66,28 +66,52 @@ class DOCMain {
 		}
 		
 		
+	}**/
+        public function printClass( $classname , $what="ndl" ) {
+                
+		$fclass =  $this->formatArray( $this->db->selectClass( $classname ) );
+                                       
+                $print = ( ctype_upper($what) ) ? str_split( $this->params[$what] )  : str_split( $what );
+		
+                foreach( $print as $k=>$value ) {
+                        $att =  $this->params[$value];
+			if( isset( $fclass[$att]  ) ) echo $fclass[$att]." * "; 
+                }
+                        
+                        
+        }   	
+	/** 
+	 * Takes as param an array returned from a select query and returns this array 
+	 * with better format for the key values.
+	 * @param array from select fetch(PDO::FETCH_ASSOC )
+	 * @return array better jey formats.
+	 **/
+	public function formatArray( $class  ) {
+                $fclass = array();
+		foreach( $class as $name=>$value  ) {
+                        $name = substr( $name , 3 );
+                        if( $name == "inheritance" ) {
+                                $ex = explode( "»" , $value );
+                                $value = "";
+                                foreach( $ex as $k => $v ) {
+                                        $value.= trim( $v )."->";
+                                }
+                                $value = substr( $value , 0 , -2  );
+                        }
+                        $fclass[ucfirst( $name )] = $value;
+                }
+		
+		return $fclass;
 	}
 	/** 
-	 * This method formats and print property or method details
-         * @param string for Properties example Yii.basePath for Methods CController::app()
+	 * This is the basic method to use when you want to print anything ( class, property , method details ).
+	 * What this method does is parse 1st param and calls the proper  method ( printClass , printPro or printMeth ) 
+	 * depends what you have supllied as 1st param.
+         * @param string can be class: CController , method: CApplication::app or CApplication::app() or
+	 * 	property: Yii.basePath
          * @param string chars from the initParams to now what to display.
 	 **/
-	public function printProMeth( $prometh , $what="ndl"  ) {
-		if( strpos( $prometh , "::"  )) { 
-			$needle = "::"; 
-			$pm = true;
-			if( !strpos( $prometh , "()")  ) $prometh.="()";
-		}
-		else if( strpos( $prometh , "." )) { $needle = "."; $pm = false; }
-		else { echo "Nothing found.\n"; exit; }
-		$cpmname = explode( $needle , $prometh );
-		$found = $this->db->selectProMeth($cpmname[0],$cpmname[1],$pm);
-		if( $found == false ) { echo "Nothing Found.\n"; exit; }
-		else {
-			
-		}
-	}
-        public function printInfo( $var , $what="ndl"  ) {
+        public function printInfo( $var , $what="andl"  ) {
                 //User ask for class method
 		if( strpos( $var , "::"  )) {
                         $needle = "::";
@@ -106,14 +130,31 @@ class DOCMain {
 			$this->printClass( $var , $what );
 			return; 
 		}
+		echo "\n";
         }
 	public function printPro( $classname , $proname , $what ) {
 		$found = $this->db->selectProMeth( $classname , $proname , false );
-		var_dump($found);
+		$found = $this->formatArray( $found );
+		$found['Name'] = $found['Type']." ".$found['Class'].".".$found['Name'];
+
+                $print = ( ctype_upper($what) ) ? str_split( $this->params[$what] )  : str_split( $what );
+
+                foreach( $print as $k=>$value ) {
+                        $att =  $this->params[$value];
+                        if( isset( $found[$att]  ) ) echo $found[$att]." * ";
+                }
 	}
 	public function printMeth( $classname , $mename , $what ) {
 		$found  = $this->db->selectProMeth( $classname , $mename , true );
-		var_dump($found);
+		$found = $this->formatArray( $found );
+                $found['Name'] = "returns ".$found['Returns']." ".$found['Class'].".".$found['Name'];
+                
+                $print = ( ctype_upper($what) ) ? str_split( $this->params[$what] )  : str_split( $what );
+                
+                foreach( $print as $k=>$value ) {
+                        $att =  $this->params[$value];
+                        if( isset( $found[$att]  ) ) echo $found[$att]." * ";
+                }
 	}
 
 }
