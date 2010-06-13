@@ -2,6 +2,13 @@
 class DOCDb {
 	public $db;
 	public $errors;
+	public function __construct( $create=false ) {
+		if( !file_exists('./db/docbotdb.sqlite') OR $create  ) {
+			$this->createDB();
+		} else {
+			$this->db = new PDO('sqlite:./db/docbotdb.sqlite');
+		}
+	}
 	/**
 	 * This method is used to create and return a DB with the certain sql schema for this applcation.
 	 * @return PDO the database created.
@@ -18,7 +25,8 @@ class DOCDb {
 		foreach( $createdbquery as $table => $q  ) {
 			if( strlen($q) > 0 ) { 
 				echo $q."\n";
-				echo $creation = ( $this->db->query( $q ) ) ? "> $table table created.\n" : "> $table unable to create table.\n"  ;
+				echo $creation = ( $this->db->query( $q ) ) ? "> $table table created.\n" : 
+					"> $table unable to create table.\n"  ;
 			}
 		}
 		unset( $creation , $unlinkdb , $createdbquery );
@@ -107,5 +115,17 @@ class DOCDb {
 					: "> $classname->".$value['Property']." could not be inserted.\n";
                         }  
 		}
+	}
+	public function selectClass( $classname ) {
+		try {
+			$sel = $this->db->prepare( "SELECT * FROM `doc_class` WHERE `cl_name`=:cname" );
+			$sel->bindParam( ':cname' , $classname );
+			$sel->execute();
+
+			return $sel->fetch(PDO::FETCH_ASSOC);
+  		} catch (PDOException $e) {
+    			print $e->getMessage();
+  		}	
+		
 	}
 }
