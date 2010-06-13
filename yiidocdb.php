@@ -128,4 +128,22 @@ class DOCDb {
   		}	
 		
 	}
+	public function selectProMeth( $classname , $pmname , $pm  ) {
+		try {
+			//if $pm true -> method
+			if( $pm  ) { $table = "`doc_cl_methods`"; $cc = "`me_class`"; $pmn = "`me_name`"; }
+			//else $pm false -> property
+			else { $table = "`doc_cl_properties`"; $cc = "`pr_class`"; $pmn = "`pr_name`"; }
+			$sel = $this->db->prepare("SELECT * FROM $table WHERE $cc = :classname AND $pmn = :pmname ;");
+
+			$sel->bindParam( ':classname' , $classname );
+			$sel->bindParam( ':pmname' , $pmname );
+			
+			$sel->execute();	
+			return $sel->fetch(PDO::FETCH_ASSOC);
+                } catch (PDOException $e) {
+                        print $e->getMessage();
+                }
+
+	}
 }
