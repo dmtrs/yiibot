@@ -22,6 +22,13 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 	// Default message
 	private $unknown = 'Sorry, never heard of this.';
 	
+	private $textFormats = array(
+		'n'	=> "\x0F",
+		'b'	=> "\x02",
+		'i'	=> "\x16",
+		'u'	=> "\x1F",
+	);
+	
 
 	/**
 	 * Check for dependencies.
@@ -95,7 +102,8 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 			return 'Sorry, unknown method.';
 			
 		extract($results);
-		return "$me_class::$me_name() $me_description $me_link";
+		extract($this->textFormats);
+		return "$b$me_class::$me_name$n $i$me_description$n $me_link";
 	}
 	
 	
