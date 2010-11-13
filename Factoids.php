@@ -5,8 +5,11 @@
  *  Author: Dimitrios Meggidis [tydeas.dr@gmail.com]
  *  Thanks ciss, blindMoe and the rest of the #yii guys.
  *
- * version next
+ * version 0.2.2
+ * - added param -a to faq to view author of the factoid
  * - add rating command to check the user with the most faq
+ * version 0.2.1
+ * - fixed: explode bug
  * version 0.2
  * - keep author of factoids
  * - author authentication on delete.
@@ -19,8 +22,8 @@
 class Phergie_Plugin_Factoids extends Phergie_Plugin_Abstract
 {
     protected $database;
-    //replace this and it's use with some regexp like [iI][sS]
     protected $delim = " is ";
+
     public function onLoad()
     {
         if (!extension_loaded('PDO') || !extension_loaded('pdo_sqlite')) {
@@ -41,9 +44,16 @@ class Phergie_Plugin_Factoids extends Phergie_Plugin_Abstract
     {
         $event = $this->getEvent();
 
-        $factoid = explode($this->delim,  $args);
-        $result = ($this->wildcardExist($args)) ?
-            "No wildcards are allowed" : $this->addFaq($factoid[0], $factoid[1], $event->getNick());
+        $position = stripos($args, $this->delim );
+        
+        if ($position !== false ) {
+            $value = substr($args, $position + strlen($this->delim));
+            $key = substr($args, 0, $position);
+            $result = ($this->wildcardExist($args)) ?
+                "No wildcards are allowed" : $this->addFaq($key, $value, $event->getNick());
+        } else {
+            $result = "Could not add factoid because if found no explanation of it. Example: add factoid is The meaning of the factoid.";
+        }
 
         $this->doPrivmsg($event->getSource(), $result);
     }
@@ -57,20 +67,51 @@ class Phergie_Plugin_Factoids extends Phergie_Plugin_Abstract
         $this->doPrivmsg($this->getEvent()->getSource(), $result);
     }
 
-    public function onCommandView($args)
+    public function onCommandFaq($args)
     {
-        $result = ($this->wildcardExist($args)) ?
-            "No wildcards are allowed" : $this->getFaq($args);
+        if ($this->wildcardExist($args)) {
+            $result = "No wildcards are allowed";
+        } else {
+            if(strpos($args, "-a")===0) {
+                $result = $this->getAuthor(trim(substr($args, 2)));
+            } else {
+                $result = $this->getFaq($args);
+            }
+        }
         $this->doPrivmsg($this->getEvent()->getSource(), $result);
     }
+
+    public function onCommandRates($args=null)
+    {
+	if(0!=(int)$args) {
+            $query = $this->rates($args);
+        } else {
+            $query = $this->rates();
+        }
+        while ( $result = $query->fetch(PDO::FETCH_ASSOC) ) {
+            $this->doPrivmsg($this->getEvent()->getSource(), $result['row_count']." faq from ".$result['fq_author']);
+        }
+    }
+
     public function getFaq($factoid)
     {
         $result = $this->selectFaq($factoid);
 
         if($result == false )
-            return "Sorry, don't know something about ".$factoid.".";
+            return "Something i do not know about.";
 
         return $result['fq_value'];
+           
+    }
+    
+    public function getAuthor($factoid)
+    {
+        $result = $this->selectFaq($factoid);
+
+        if($result == false )
+            return "Something i do not know about.";
+
+        return $result['fq_author'];
            
     }
 
@@ -89,8 +130,7 @@ class Phergie_Plugin_Factoids extends Phergie_Plugin_Abstract
         $result = $query->fetch(PDO::FETCH_ASSOC);
 
         if(empty($result))
-            return false;
-        var_dump($result);
+            return false; 
         return $result;
     }
 
@@ -143,6 +183,22 @@ class Phergie_Plugin_Factoids extends Phergie_Plugin_Abstract
             return true;
         return false;
     }
-
+    private function rates($limit = 3)
+    {
+        $query = $this->database->prepare("
+            SELECT
+                 COUNT(*) AS `row_count`, `fq_author`
+             FROM
+                 `fq_index`
+             GROUP BY 
+                 `fq_author`
+             ORDER BY
+                 `row_count`
+             DESC LIMIT ?
+        ");
+        $query->bindParam(1, $limit);
+        $query->execute();
+        return $query;
+    }
 }
 ?>
