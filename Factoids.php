@@ -92,6 +92,19 @@ class Phergie_Plugin_Factoids extends Phergie_Plugin_Abstract
             $this->doPrivmsg($this->getEvent()->getSource(), $result['row_count']." faq from ".$result['fq_author']);
         }
     }
+    public function onCommandList()
+    {
+        $query = $this->database->prepare("
+            SELECT
+                `fq_key`, `fq_author`
+            FROM
+                `fq_index`
+        ");
+        $query->execute();
+        while ( $result = $query->fetch(PDO::FETCH_ASSOC) ) {
+            $this->doPrivmsg($this->getEvent()->getSource(), $result['fq_key']." by ".$result['fq_author']);
+        }
+    }
 
     public function getFaq($factoid)
     {
@@ -119,7 +132,7 @@ class Phergie_Plugin_Factoids extends Phergie_Plugin_Abstract
     {
         $query = $this->database->prepare("
             SELECT
-                `fq_value`, `fq_author`
+                `fq_key`, `fq_value`, `fq_author`
             FROM
                 `fq_index`
             WHERE
