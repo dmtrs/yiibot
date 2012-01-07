@@ -27,10 +27,13 @@
 require_once('./yiidocdb.php');
 $docdb =new  DOCDb;
 
-foreach(getClasses() as $class  ) {    
+
+ foreach(getClasses() as $class  ) { 
     if($class !== null ) {
         $docdb->fillDB(getArrayClass($class));
+        $i++;
     }
+
 }
 var_dump($docdb->errors);
 
@@ -112,18 +115,15 @@ function getArrayClass( $class ) {
 	//Get all the h2 elements
 	$h2 = $dom->getElementsByTagName("h2");
 
-	//What part of the doc exist
-	$exist = array();
-	foreach( $h2 as $value ) {
-		$exist[] = $value->textContent;
-	}
-
-	//and what we will get comparte to the usuall standard h2s 
-	$willget = array_intersect ($h2s , $exist );
-
-	$tbln = 1;
+    foreach($h2 as $i)
+    {
+        $h = $i->textContent;
+        if(in_array($h, $h2s)) $willget[] = $h;
+    }
+    
+    $tbln = 1;
 	foreach( $willget as $value ) {
-		$classdoc[$value] = getTable( $tables->item($tbln) , true , $classname);
+		$classdoc[$value] = getTable( $tables->item($tbln) , true );
 		$tbln++;
 	}
 
@@ -136,7 +136,7 @@ function getArrayClass( $class ) {
             }
         }
     }
-	return $classdoc;
+    return $classdoc;
 }
 function getExtraDetails($m, $class, $dom)
 {
