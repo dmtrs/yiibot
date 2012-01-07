@@ -74,9 +74,9 @@ class DOCDb {
 	//I get some undefined method names don't know why.
 	function insertProMeth( $methodsdl , $what , $classname ) {
 		if ( $what[1]=="Methods" ) {
-			$stmt = $this->db->prepare("INSERT INTO `doc_cl_methods` VALUES (?,?,?,?,?,?,?);");
+			$stmt = $this->db->prepare("INSERT INTO `doc_cl_methods` VALUES (?,?,?,?,?,?,?,?,?);");
 			//Have not returns yet :)
-			$returns='-';
+			$empt='-';
 			foreach( $methodsdl as $key => $value ) {
 				$stmt->bindParam(1, $classname );
 				if( !isset( $value['Method'] ) ) { 
@@ -85,11 +85,26 @@ class DOCDb {
 					$this->errors[]="$classname undefined method name try to insert: ".$value['Method'];
 				}
 				$stmt->bindParam(2, $value['Method'] );
-				$stmt->bindParam(3, $returns );
+                if(isset($value['Returns'])) { 
+				    $stmt->bindParam(3, $value['Returns']);
+                } else { 
+				    $stmt->bindParam(3, $empt);
+                }
 				$stmt->bindParam(4, $value['Description'] );
 				$stmt->bindParam(5, $value['Defined By'] );
 				$stmt->bindParam(6, $what[0] );
 				$stmt->bindParam(7, $value['Link'] );
+                //TODO: source
+                if(isset($value['Source'])) { 
+				    $stmt->bindParam(8, $value['Source']);
+                } else { 
+				    $stmt->bindParam(8, $empt);
+                }
+                if(isset($value['Signature'])) { 
+				    $stmt->bindParam(9, $value['Signature']);
+                } else { 
+				    $stmt->bindParam(9, $empt);
+                }
 				
 				echo $result = ( $stmt->execute() ) ? "> $classname::".$value['Method']." inserted.\n" 
 					: "> $classname::".$value['Method']." could not be inserted.\n";

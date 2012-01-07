@@ -25,37 +25,54 @@
  * + BUGS: In method getTable there are 2 comments related to bugs.
  **/
 require_once('./yiidocdb.php');
-$classes = getClasses();
 $docdb =new  DOCDb;
-$docdb->createDB();
 
-foreach( $classes as $key=>$val  ) {
-	$docdb->fillDB(getArrayClass($val));
+foreach(getClasses() as $class  ) {    
+    if($class !== null ) {
+        $docdb->fillDB(getArrayClass($class));
+    }
 }
 var_dump($docdb->errors);
 
+function getDom($class = null)
+{
+    $html = getFile($class);
+    //Google plusone element
+    $html = preg_replace('/g:plusone/', 'span', $html);
+    $dom = new DOMDocument();
+    $dom->loadHTML($html);
+    $dom->preserveWhiteSpace = false;
+	return $dom;//->getElementsByTagName("body")->item(0);
+}
+function getFile( $file = null, $path = './html/', $url = 'http://www.yiiframework.com/doc/api/')
+{
+    $path .= ($file === null) ? 'classes.html' : $file.'.html';
+    $url  .= ($file === null) ? '' : $file;
+
+    if(!file_exists($path)) {
+        if ( !file_get_contents( $url ) ) return array();
+        $return = file_get_contents($url);
+        file_put_contents($path, $return );
+        return $return;
+    }
+    return file_get_contents($path);
+}
 /**
  * Retrieve a list with all the classes from documentation
  * @returns array classes of the documentation
  **/
-function getClasses() {
+function getClasses()
+{
 	$classes = array();
-        $url = "http://www.yiiframework.com/doc/api/"; 
-        if ( !file_get_contents( $url ) ) return array();
-        $html = file_get_contents( $url );
-        $dom = new DOMDocument();
-        $dom->loadHTML($html);
-        $dom->preserveWhiteSpace = false;
-	$content = $dom->getElementById("content");	
-	var_dump($content);
-	$summary = $content->getElementsByTagName('table');
-	var_dump($summary);
-	$rows = $summary->item(0)->getElementsByTagName("tr");
+    
+    $body = getDom()->getElementsByTagName("body")->item(0);  
+	$summary = $body->getElementsByTagName('table');
+	$rows    = $summary->item(0)->getElementsByTagName("tr");
 	
 	foreach( $rows as $key=>$row  ) {
 		$tds = $row->getElementsByTagName("td");
-		if ( $tds->length==2 ) $classes[] = $tds->item(0)->textContent;
-		if ( $tds->length==3 ) $classes[] = $tds->item(1)->textContent;
+        $i = ($tds->length - 2);
+        $classes[] = $tds->item($i)->textContent;
 	}
 	
 	return $classes;
@@ -67,26 +84,20 @@ function getClasses() {
  * @return array documentation of class
  **/
 function getArrayClass( $class ) {
-	$url = "http://www.yiiframework.com/doc/api/";
-	if ( !file_get_contents( $url.$class ) ) return array();
-	$html = file_get_contents( $url.$class );
-	$dom = new DOMDocument();
-	$dom->loadHTML($html);
-	$dom->preserveWhiteSpace = false;
+	//Get content
+	$dom = getDom($class);
+    $body = $dom->getElementsByTagName("body")->item(0);  
 	// Standard h2 headings. The method and propertied details are missing
 	$h2s = array('Public Properties','Public Methods','Protected Properties','Protected Methods');
-
-	//Get content
-	$content = $dom->getElementById("content");
 
 	//The document as an array
 	$classdoc = array();
 
 	//Get all the tables. The first table will be the one under the header.
-	$tables = $content->getElementsByTagName('table');
+	$tables = $body->getElementsByTagName('table');
 
 	//Get name of the class.
-	$classname = $content->getElementsByTagName("h1");
+	$classname = $body->getElementsByTagName("h1");
 
 	$classdoc = array();
 	//Get first table under the header.There is a problem with the Inheritance.
@@ -99,7 +110,7 @@ function getArrayClass( $class ) {
 	$classdoc[$class]['Link'] = $url.$class;
 
 	//Get all the h2 elements
-	$h2 = $content->getElementsByTagName("h2");
+	$h2 = $dom->getElementsByTagName("h2");
 
 	//What part of the doc exist
 	$exist = array();
@@ -112,13 +123,44 @@ function getArrayClass( $class ) {
 
 	$tbln = 1;
 	foreach( $willget as $value ) {
-		$classdoc[$value] = getTable( $tables->item($tbln) , true );
+		$classdoc[$value] = getTable( $tables->item($tbln) , true , $classname);
 		$tbln++;
 	}
 
+    foreach(array('Public Methods', 'Protected Methods') as $m)
+    {
+        if(isset($classdoc[$m])) { 
+            foreach($classdoc[$m] as $i => $method)
+            { 
+                $classdoc[$m][$i] = getExtraDetails($method, $class, $dom);
+            }
+        }
+    }
 	return $classdoc;
 }
+function getExtraDetails($m, $class, $dom)
+{
+    $xpath = new DOMXPath($dom);
 
+    if(isset($m['Defined By']) && $m['Defined By']==$class) {
+        $id = substr($m['Method'], 0, -2).'-detail'; 
+        $signature = $xpath->query('//div[@id="'.$id.'"]/following-sibling::table//div[@class="signature2"]')->item(0);
+        $m['Signature'] = $signature->textContent;
+        $lTr = $xpath->query('//div[@id="'.$id.'"]/following-sibling::table/tr[last()]/td');
+
+        $i = 0;
+        $r = '';
+        if($lTr->item($i) !== null && strpos($lTr->item($i)->textContent, '{return}') !== false ) {             
+//Fix the XPATH for the last tr
+            while($lTr->item(++$i) != null && $i < 3) {
+                $r .= $lTr->item($i)->textContent.' ';
+            }
+            $m['Returns'] = $r;
+        }
+    }
+    return $m;
+    
+}
 /**
  * Gets as a param a div with text and makes it an array by exploding the text on the \n\n
  * @param DOMNode a div which containts text
@@ -161,27 +203,29 @@ function getParagraph( $div ) {
  */
 
 function getTable( $tbl , $horizontal=true ) {
-        $details = array();
-        $rows = $tbl->getElementsByTagName('tr');
-        $th = $tbl->getElementsByTagName('th');
-	$rowname='';
-        foreach( $rows as $rownumber=>$tr ) {
-                $tds = $tr->getElementsByTagName('td');
-		//If it's horizontal take the first td as name
-		
-                foreach( $tds as $key=>$td ) {
-			if( $horizontal ) {
-				if( $key == 0 ) $rowname = trim( $td->textContent );
-				$des = $th->item($key)->textContent;
-                        	$details[$rownumber][$des] = trim( $td->textContent );
+    $details = array();
+    $rows = $tbl->getElementsByTagName('tr');
+    $th = $tbl->getElementsByTagName('th');
+    $rowname='';
+    foreach( $rows as $rownumber=>$tr )
+    {
+        $tds = $tr->getElementsByTagName('td');
+        //If it's horizontal take the first td as name
 
-			} else {
-				$des = $th->item($rownumber)->textContent;
-                        	$details[$des] = trim( $td->textContent );
-			}
-			
-                }
-		if ( $horizontal && $rownumber !=0 ) $details[$rownumber]['Link'] = "http://www.yiiframework.com/doc/api/".$details[$rownumber]['Defined By']."#".trim( $rowname , "()" )."-detail";
+        foreach( $tds as $key=>$td )
+        {
+            if( $horizontal ) {
+                if( $key == 0 ) $rowname = trim( $td->textContent );
+                $des = $th->item($key)->textContent;
+                $details[$rownumber][$des] = trim( $td->textContent );
+            } else {
+                $des = $th->item($rownumber)->textContent;
+                $details[$des] = trim( $td->textContent );
+            }
+
         }
-        return $details;
+        if ( $horizontal && $rownumber !=0 ) $details[$rownumber]['Link'] = "http://www.yiiframework.com/doc/api/".$details[$rownumber]['Defined By']."#".trim( $rowname , "()" )."-detail";
+    }
+
+    return $details;
 }
