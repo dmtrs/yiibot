@@ -11,7 +11,7 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 	 * @var PDO
 	 */
 	protected $database;
-
+	//'/^(?:[\w\d]+|\*(?!\*))+$/'
 	private $queryTypes = array(
 		'help'			=> '#^help(\s*?(?<command>.+))?$#',
 		'property'	=> '#^(?<class>\w[\w\d]*?)::\$(?<property>\w[\w\d]*?)$#',
@@ -45,7 +45,7 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 			$path = dirname(__FILE__);
 			try
 			{
-				$this->database = new PDO('sqlite:' . $path . '/db/docbotdb.sqlite');            
+				$this->database = new PDO('sqlite:' . $path . '/Api/api.db');    
 			}
 			catch (PDOException $e)
 			{
@@ -54,13 +54,17 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 
 		$this->getPluginHandler()->getPlugin('Command');
 	}
-
-
 	public function onCommandApi($args)
 	{
+		if(preg_match('#(?<args>^[^, ]++)\s*,?\s*(?:(?:@|at|to|oh)\s+|@|)(?<nick>[a-zA-Z0-9_-]+)\s*?$#', $args, $matches))
+		{
+			$args = $matches['args'];
+			$nick = $matches['nick'];		
+		}
+ 	
 		$args = trim($args);
 		$message = $this->unknown;
-		
+
 		foreach($this->queryTypes as $name => $pattern)
 		{
 			if(preg_match($pattern, $args, $matches))
@@ -74,9 +78,7 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 		}
 		$this->doPrivmsg($this->getEvent()->getSource(), $message);
 	}	
-	
-	
-	private function queryMethod($args)
+        private function queryMethod($args)
 	{
 		$args['method'] .= '()';
 		
@@ -111,6 +113,8 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 	{
 		$query = $this->database->prepare("
 			SELECT
+				`pr_type`,
+				`pr_access`,
 				`pr_class`,
 				`pr_name`,
 				`pr_description`,
@@ -130,7 +134,7 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 			return 'Sorry, unknown property.';
 	
 		extract($results);
-		return "$pr_class::\$$pr_name $pr_description $pr_link";
+		return "$pr_access $pr_type $pr_class::\$$pr_name $pr_description $pr_link";
 	}
 	
 	
@@ -177,8 +181,9 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 					"Hello, my name is yiibot. I am a Phergie ( http://phergie.org ) IRC bot programmed to help you with the Yii documentation."
 				 ." The main command to call me is: api. "
 				 ." For class info: api class, for method info: api class::method & for property info: api class::\$property"
-				 ." --- For reporting issues on my functionality visit: http://github.com/dmtrs/yiibot/issues or /msg tydeas."
-				 ." Have a nice day :)";
+				 ." -- For reporting issues on my functionality visit: http://github.com/dmtrs/yiibot/issues or /msg tydeas."
+				 ."Authors of Api Plugin for Phergie bot: tydeas, ciss and thanks to rawtaz."
+				 ."Have a nice day :)";                                 
 			default					: return "Sorry, I've never heard of \"$command.\""; 
 		}
 	}

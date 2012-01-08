@@ -26,14 +26,18 @@
  **/
 require_once('./yiidocdb.php');
 $docdb =new  DOCDb;
+$d = false;
 
 
  foreach(getClasses() as $class  ) { 
+    if($d ) {
     if($class !== null ) {
         $docdb->fillDB(getArrayClass($class));
         $i++;
     }
-
+    }
+    if($class =='CGridColumn' )
+        $d = true;
 }
 var_dump($docdb->errors);
 
@@ -55,7 +59,7 @@ function getFile( $file = null, $path = './html/', $url = 'http://www.yiiframewo
     if(!file_exists($path)) {
         if ( !file_get_contents( $url ) ) return array();
         $return = file_get_contents($url);
-        file_put_contents($path, $return );
+        //file_put_content($path, $return );
         return $return;
     }
     return file_get_contents($path);
@@ -87,6 +91,7 @@ function getClasses()
  * @return array documentation of class
  **/
 function getArrayClass( $class ) {
+    $url = 'http://www.yiiframework.com/doc/api/';
 	//Get content
 	$dom = getDom($class);
     $body = $dom->getElementsByTagName("body")->item(0);  
