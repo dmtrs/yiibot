@@ -97,9 +97,10 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
                 FROM
                     `doc_cl_methods` `s` 
                     INNER JOIN `doc_cl_methods` `d` ON `d`.`me_class` = `s`.`me_definedby`
+                        AND `d`.`me_name` = `s`.`me_name`
                 WHERE
                     `s`.`me_class` LIKE :class
-                    AND `d`.`me_name` LIKE :method
+                    AND `s`.`me_name` LIKE :method
             ");
             $signature = true;
         } else { 
@@ -128,7 +129,7 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 		extract($results);
 		extract($this->textFormats);
         //TODO: fix the database for the \n in signature
-		return ($signature) ? $b.preg_replace('/\n/',' ',$me_signature).$n.' '.$me_link : "$b$me_class::$me_name$n $i$me_description$n $me_link";
+		return ($signature) ? $i.preg_replace('/\n/',' ',$me_signature).$n.' '.$me_link : "$b$me_class::$me_name$n $i$me_description$n $me_link";
 	}
 	
 	
