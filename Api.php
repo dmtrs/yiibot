@@ -14,7 +14,7 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 	//'/^(?:[\w\d]+|\*(?!\*))+$/'
 	private $queryTypes = array(
 		'help'			=> '#^help(\s*?(?<command>.+))?$#',
-		'property'	=> '#^(?<class>\w[\w\d]*?)::\$(?<property>\w[\w\d]*?)$#',
+		'property'	    => '#^(?<class>\w[\w\d]*?)::\$(?<property>\w[\w\d]*?)$#',
 		'method'		=> '#^(?<class>\w[\w\d]*?)::(?<method>[A-Za-z0-9]+)\s*?(\(\))?#',
 		'class'			=> '#^(?<class>\w[\w\d]*?)$#',
 	);
@@ -56,6 +56,12 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 	}
 	public function onCommandApi($args)
 	{
+        //TODO: Options regexp
+        if(preg_match('#^-(?<options>[\w]*?)\s+?(?<args>.*?)$#', $args, $matches)) {
+            $options = trim($matches['options']);
+            $args    = trim($matches['args']);
+        }
+        
 		if(preg_match('#(?<args>^[^, ]++)\s*,?\s*(?:(?:@|at|to|oh)\s+|@|)(?<nick>[a-zA-Z0-9_-]+)\s*?$#', $args, $matches))
 		{
 			$args = $matches['args'];
@@ -72,28 +78,44 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 				$functionName = 'query' . ucfirst($name);
 				if(!method_exists($this, $functionName))
 					continue;
-				$message = (empty($nick) ? '' : "$nick: ") . $this->$functionName($matches);
+				$message = (empty($nick) ? '' : "$nick: ") . $this->$functionName($matches, (empty($options)) ? null : $options);
 				break;
 			}
 		}
 		$this->doPrivmsg($this->getEvent()->getSource(), $message);
 	}	
-        private function queryMethod($args)
+    private function queryMethod($args, $options = null)
 	{
 		$args['method'] .= '()';
-		
-		$query = $this->database->prepare("
-			SELECT
-				`me_class`,
-				`me_name`,
-				`me_description`,
-				`me_link`
-			FROM
-				`doc_cl_methods`
-			WHERE
-				`me_class` LIKE :class
-				AND `me_name` LIKE :method
-		");
+        //TODO: make this more elegant
+        $signature = false;
+		if($options !== null && strpos('s', $options) === 0 ) {
+            $query = $this->database->prepare("
+                SELECT 
+                    `d`.`me_signature`,
+                    `d`.`me_link`
+                FROM
+                    `doc_cl_methods` `s` 
+                    INNER JOIN `doc_cl_methods` `d` ON `d`.`me_class` = `s`.`me_definedby`
+                WHERE
+                    `s`.`me_class` LIKE :class
+                    AND `d`.`me_name` LIKE :method
+            ");
+            $signature = true;
+        } else { 
+            $query = $this->database->prepare("
+                SELECT
+                    `me_class`,
+                    `me_name`,
+                    `me_description`,
+                    `me_link`
+                FROM
+                    `doc_cl_methods`
+                WHERE
+                    `me_class` LIKE :class
+                    AND `me_name` LIKE :method
+            ");
+        }
 
 		$query->bindParam(':class', $args['class']);
 		$query->bindParam(':method', $args['method']);
@@ -105,7 +127,8 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 			
 		extract($results);
 		extract($this->textFormats);
-		return "$b$me_class::$me_name$n $i$me_description$n $me_link";
+        //TODO: fix the database for the \n in signature
+		return ($signature) ? $b.preg_replace('/\n/',' ',$me_signature).$n.' '.$me_link : "$b$me_class::$me_name$n $i$me_description$n $me_link";
 	}
 	
 	
@@ -138,7 +161,7 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
 	}
 	
 	
-	private function queryClass($args)
+	private function queryClass($args, $options = null)
 	{
 		$query = $this->database->prepare("
 			SELECT
