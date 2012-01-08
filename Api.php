@@ -61,7 +61,7 @@ class Phergie_Plugin_Api extends Phergie_Plugin_Abstract
             $options = trim($matches['options']);
             $args    = trim($matches['args']);
         }
-        
+        //BUG: can not catch name like []       
 		if(preg_match('#(?<args>^[^, ]++)\s*,?\s*(?:(?:@|at|to|oh)\s+|@|)(?<nick>[a-zA-Z0-9_-]+)\s*?$#', $args, $matches))
 		{
 			$args = $matches['args'];
